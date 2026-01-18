@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic-settings
+
+pypdf
+python-docx
+
+numpy
+scikit-learn
+joblib
+faiss-cpu
+
+google-genai
+

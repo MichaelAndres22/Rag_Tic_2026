@@ -1,0 +1,2 @@
+FastAPI sirve para crear APIs.
+Python es el lenguaje.

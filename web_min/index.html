@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RAG MVP</title>
+  <style>
+    :root{
+      --bg:#0b1020; --panel:rgba(255,255,255,.06); --border:rgba(255,255,255,.12);
+      --text:rgba(255,255,255,.92); --muted:rgba(255,255,255,.65); --accent:#7aa2ff;
+      --ok:#32d583; --bad:#ff6b6b; --r:16px; --shadow:0 18px 60px rgba(0,0,0,.45);
+      --mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:var(--sans); color:var(--text); min-height:100vh;
+      background: radial-gradient(1200px 700px at 15% 0%, rgba(122,162,255,.25), transparent 60%),
+                 radial-gradient(1000px 700px at 90% 10%, rgba(50,213,131,.18), transparent 55%),
+                 var(--bg);
+    }
+    .wrap{max-width:1200px;margin:0 auto;padding:22px 16px 30px}
+    header{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:14px}
+    h1{margin:0;font-size:24px}
+    .sub{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.35}
+    .status{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--border);
+      background:var(--panel);border-radius:999px;box-shadow:var(--shadow);font-size:13px;color:var(--muted)}
+    .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.3)}
+    .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:14px;align-items:start}
+    @media (max-width: 1050px){ .grid{grid-template-columns:1fr} }
+
+    .card{border:1px solid var(--border);background:rgba(255,255,255,.05);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+    .hd{padding:12px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,.03)}
+    .bd{padding:12px}
+    .btn{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:var(--text);
+      border-radius:12px;padding:10px 12px;font-size:14px;cursor:pointer;transition:.12s}
+    .btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.08)}
+    .btn.primary{border-color:rgba(122,162,255,.35);background:rgba(122,162,255,.14)}
+    .btn.primary:hover{background:rgba(122,162,255,.18)}
+    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+    .input,.textarea{width:100%;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.18);
+      color:var(--text);border-radius:12px;padding:10px 12px;outline:none;font-size:14px}
+    .textarea{resize:vertical;min-height:92px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .mono{font-family:var(--mono);font-size:12px;color:rgba(255,255,255,.7);word-break:break-all}
+    .kv{display:grid;grid-template-columns:90px 1fr;gap:8px 10px;font-size:13px;color:var(--muted);margin-top:10px}
+    .kv .k{color:rgba(255,255,255,.78)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);cursor:pointer;font-size:13px;color:rgba(255,255,255,.78)}
+    .tab.active{border-color:rgba(122,162,255,.35);background:rgba(122,162,255,.14);color:rgba(255,255,255,.92)}
+    .panel{display:none}
+    .panel.active{display:block}
+
+    .msgs{height:520px;overflow:auto;padding:12px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(0,0,0,.16)}
+    .msg{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+    .bubble{max-width:92%;border-radius:14px;padding:10px 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);white-space:pre-wrap;line-height:1.35;font-size:14px}
+    .me .bubble{margin-left:auto;border-color:rgba(122,162,255,.25);background:rgba(122,162,255,.10)}
+    .meta{font-size:12px;color:rgba(255,255,255,.55)}
+    .err{color:#ffd2d2;background:rgba(255,107,107,.12);border:1px solid rgba(255,107,107,.28);padding:10px 12px;border-radius:12px;font-size:13px;white-space:pre-wrap;display:none}
+    details{margin-top:10px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.03);overflow:hidden}
+    summary{cursor:pointer;padding:10px 12px;color:rgba(255,255,255,.80);font-size:13px;user-select:none}
+    .cit{padding:10px 12px 12px;border-top:1px solid rgba(255,255,255,.10);display:flex;flex-direction:column;gap:10px}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.78);font-size:12px;width:fit-content}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>RAG MVP</h1>
+        <div class="sub">Sube un documento. Luego: resumen, plan de estudio, práctica corregida y chat RAG.</div>
+      </div>
+      <div class="status">
+        <span class="dot" id="dot"></span>
+        <span id="statusText">Conectando...</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Panel principal -->
+      <section class="card">
+        <div class="hd">
+          <div class="tabs">
+            <div class="tab active" data-tab="t1">Documento</div>
+            <div class="tab" data-tab="t2">Resumen</div>
+            <div class="tab" data-tab="t3">Plan de estudio</div>
+            <div class="tab" data-tab="t4">Práctica</div>
+          </div>
+          <button class="btn" id="clearBtn">Limpiar</button>
+        </div>
+
+        <div class="bd">
+          <div id="panel-t1" class="panel active">
+            <div class="row">
+              <input type="file" id="file" />
+              <button class="btn primary" id="uploadBtn">Subir</button>
+            </div>
+            <div class="row" style="margin-top:10px;">
+              <label style="flex:1;color:rgba(255,255,255,.7);font-size:13px">
+                Backend URL
+                <input class="input" id="apiBase" value="http://127.0.0.1:8000" />
+              </label>
+            </div>
+            <div id="uploadErr" class="err"></div>
+            <div class="kv">
+              <div class="k">doc_id</div><div class="mono" id="docIdView">—</div>
+              <div class="k">archivo</div><div id="fileView">—</div>
+              <div class="k">chunks</div><div id="chunksView">—</div>
+            </div>
+          </div>
+
+          <div id="panel-t2" class="panel">
+            <div class="row">
+              <button class="btn primary" id="summaryBtn">Generar resumen</button>
+            </div>
+            <div id="summaryErr" class="err"></div>
+            <div id="summaryOut" class="bubble" style="margin-top:12px;max-width:100%"></div>
+            <div id="summaryCits"></div>
+          </div>
+
+          <div id="panel-t3" class="panel">
+            <div class="row">
+              <button class="btn primary" id="planBtn">Generar plan</button>
+            </div>
+            <div id="planErr" class="err"></div>
+            <div id="planOut" class="bubble" style="margin-top:12px;max-width:100%"></div>
+            <div id="planCits"></div>
+          </div>
+
+          <div id="panel-t4" class="panel">
+            <div class="row">
+              <button class="btn primary" id="genPracticeBtn">Generar preguntas</button>
+              <label style="color:rgba(255,255,255,.7);font-size:13px">
+                Cantidad
+                <input class="input" id="nQ" value="8" style="width:90px;display:inline-block" />
+              </label>
+            </div>
+            <div id="pracErr" class="err"></div>
+            <div id="practiceList" style="margin-top:12px;display:flex;flex-direction:column;gap:10px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chat siempre activo -->
+      <section class="card">
+        <div class="hd">
+          <div>
+            <div style="font-size:14px;color:rgba(255,255,255,.88)">Chat</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.6)">Siempre disponible</div>
+          </div>
+          <button class="btn" id="resetChatBtn">Reiniciar</button>
+        </div>
+        <div class="bd">
+          <div class="msgs" id="msgs"></div>
+          <div id="chatErr" class="err"></div>
+          <textarea class="textarea" id="question" placeholder="Pregunta sobre el documento..."></textarea>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn primary" id="askBtn">Enviar</button>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:rgba(255,255,255,.6)">Atajo: Ctrl+Enter</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
